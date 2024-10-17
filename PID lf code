@@ -93,7 +93,7 @@ void PID(){
   derivative = error - prevError;
   D = derivative * kd;
 
-  PID = P+I+D;
+  float PID = P+I+D;
 
   m1_speed = m1_baseSpeed + PID;
   m2_speed = m2_baseSpeed - PID;
