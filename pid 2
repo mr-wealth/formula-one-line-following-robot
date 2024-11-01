@@ -10,7 +10,7 @@
 
 // Sensor pins (for QTR-8)
 #define sensorCount 8
-const int sensorPins[sensorCount] = {A0, A1, A2, A3, A4, A5, A6, A7};
+const uint8_t sensorPins[sensorCount] = {A0, A1, A2, A3, A4, A5, A6, A7};
 QTRSensors qtr;
 
 float Kp = 0.5; // Proportional gain
