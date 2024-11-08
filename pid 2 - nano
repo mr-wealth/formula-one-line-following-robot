@@ -1,12 +1,12 @@
 #include <QTRSensors.h>
 
 // Motor pins
-#define ENA 9   // Enable pin for motor A
-#define IN1 8   // Input pin 1 for motor A
+#define ENA 5   // Enable pin for motor A
+#define IN1 6  // Input pin 1 for motor A
 #define IN2 7   // Input pin 2 for motor A
-#define ENB 6   // Enable pin for motor B
-#define IN3 5   // Input pin 1 for motor B
-#define IN4 4   // Input pin 2 for motor B
+#define IN3 8   // Input pin 1 for motor B
+#define IN4 9   // Input pin 2 for motor B
+#define ENB 10   // Enable pin for motor B
 
 // Sensor pins (for QTR-8)
 #define sensorCount 8
