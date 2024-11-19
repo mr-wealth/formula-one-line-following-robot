@@ -13,7 +13,7 @@
 const uint8_t sensorPins[SensorCount] = {A0, A1, A2, A3, A4, A5};
 QTRSensors qtr;
 
-float Kp = 0.5; // Proportional gain
+float Kp = 1; // Proportional gain
 float Ki = 0.1; // Integral gain
 float Kd = 0.05; // Derivative gain
 
@@ -22,7 +22,7 @@ float integral = 0;
 
 void setup() {
   Serial.begin(9600);
-  qtr.setTypeAnalog();
+  qtr.setTypeRC();
   qtr.setSensorPins(sensorPins, SensorCount);
   pinMode(ENA, OUTPUT);
   pinMode(IN1, OUTPUT);
