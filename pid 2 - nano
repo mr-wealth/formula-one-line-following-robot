@@ -1,5 +1,10 @@
 #include <QTRSensors.h>
 
+const float maxIntegral = 100;
+const float minIntegral = -100;
+unsigned long lastReadTime = 0; //track last sensor read time
+unsigned long readInterval = 20; //time between reads in milliseconds
+
 // Motor pins
 #define ENA 10   // Enable pin for motor A
 #define IN1 9  // Input pin 1 for motor A
@@ -9,8 +14,8 @@
 #define ENB 5   // Enable pin for motor B
 
 // Sensor pins (for QTR-8)
-#define SensorCount 6
-const uint8_t sensorPins[SensorCount] = {A0, A1, A2, A3, A4, A5};
+#define SensorCount 8
+const uint8_t sensorPins[SensorCount] = {A0, A1, A2, A3, A4, A5, A6, A7};
 QTRSensors qtr;
 
 float Kp = 1; // Proportional gain
@@ -36,30 +41,39 @@ void setup() {
 }
 
 void loop() {
-  unsigned long start = millis();
+  unsigned long currentTime = millis();
+
+  //check if it's time to read the sensors
+  if (currentTime - lastReadTime >= readInterval){
+    lastReadTime = currentTime;
+
+    // Read sensor values and calculate position
+    uint16_t sensorValues[SensorCount];
+    int position = qtr.readLineWhite(sensorValues); // Use white line detection
+
+    // Calculate error (centered at middle sensor)
+    int centerSensor = (SensorCount - 1) * 1000;
+    int error = position - centerSensor;
+
+    // PID calculations
+    integral += error;
+    integral = constrain(integral, minIntegral, maxIntegral);
+
+    float derivative = error - previousError;
+
+    float PID = ((Kp * error) + (Ki * integral) + (Kd * derivative));
+
+    previousError = error;
+
+    // Adjust motor speeds based on PID output
+    int leftSpeed = constrain(200 - PID, 0, 255); // Base speed of left motor
+    int rightSpeed = constrain(200 + PID, 0, 255); // Base speed of right motor
+
+    setMotorSpeeds(leftSpeed, rightSpeed);
+  }
     
-  // Read sensor values and calculate position
-  uint16_t sensorValues[SensorCount];
-  int position = qtr.readLineWhite(sensorValues); // Use white line detection
+  
 
-  // Calculate error (centered at middle sensor)
-  int error = position - 3500; // Adjust this value based on your calibration
-
-  // PID calculations
-  integral += error;
-  float derivative = error - previousError;
-
-  float PID = ((Kp * error) + (Ki * integral) + (Kd * derivative));
-
-  previousError = error;
-
-  // Adjust motor speeds based on PID output
-  int leftSpeed = 200 - PID; // Base speed of left motor
-  int rightSpeed = 200 + PID; // Base speed of right motor
-
-  setMotorSpeeds(leftSpeed, rightSpeed);
-
-  delay(20); // Loop delay for stability
 }
 
 void setMotorSpeeds(int leftSpeed, int rightSpeed) {
