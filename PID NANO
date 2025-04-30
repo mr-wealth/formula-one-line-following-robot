@@ -1,0 +1,169 @@
+#include <QTRSensors.h>
+#include <L298NX2.h>
+
+const float maxIntegral = 100;
+const float minIntegral = -100;
+unsigned long lastReadTime = 0; //track last sensor read time
+unsigned long readInterval = 20; //time between reads in milliseconds
+
+// Motor pins
+#define ENA 10   // Enable pin for motor A
+#define IN1 9  // Input pin 1 for motor A
+#define IN2 8   // Input pin 2 for motor A
+#define IN3 7   // Input pin 1 for motor B
+#define IN4 6   // Input pin 2 for motor B
+#define ENB 5   // Enable pin for motor B
+
+// Sensor pins (for QTR-8)
+#define SensorCount 6
+const uint8_t sensorPins[SensorCount] = {A0, A1, A2, A3, A4, A5};
+QTRSensors qtr;
+
+float Kp = 10; // Proportional gain
+float Ki = 0; // Integral gain
+float Kd = 0; // Derivative gain
+uint8_t multiP = 1;
+uint8_t multiI  = 1;
+uint8_t multiD = 1;
+uint8_t Kpfinal;
+uint8_t Kifinal;
+uint8_t Kdfinal;
+float Pvalue;
+float Ivalue;
+float Dvalue;
+int speed = 230;
+
+int previousError = 0;
+float integral = 0;
+
+L298NX2 motors(ENA, IN1, IN2, ENB, IN3, IN4);
+
+void setup() {
+  Serial.begin(9600);
+  qtr.setTypeRC();
+  qtr.setSensorPins(sensorPins, SensorCount);
+  pinMode(ENA, OUTPUT);
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(ENB, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  calibrador();
+  Serial.print("Começando a seguir a linha...");
+
+}
+
+void loop() {
+  unsigned long currentTime = millis();
+
+  //check if it's time to read the sensors
+  if (currentTime - lastReadTime >= readInterval){
+    lastReadTime = currentTime;
+
+    // Read sensor values and calculate position
+    uint16_t sensorValues[SensorCount];
+    int position = qtr.readLineWhite(sensorValues); // Use white line detection
+
+    // Calculate error (centered at middle sensor)
+    int centerSensor = (SensorCount - 1) * 1000;
+    int error = position - centerSensor;
+
+    // PID calculations
+    int P, I, D;
+    P = error;
+    
+    I = integral + error;
+    integral = constrain(integral, minIntegral, maxIntegral);
+
+    float derivative = error - previousError;
+
+    Pvalue = (Kp/pow(10,multiP))*P;
+    Ivalue = (Ki/pow(10,multiI))*I;
+    Dvalue = (Kd/pow(10,multiD))*D;
+
+    float PID = Pvalue + Ivalue + Dvalue;
+    previousError = error;
+
+    // Adjust motor speeds based on PID output
+    int leftSpeed = constrain(speed + PID, 0, 255); // Base speed of left motor
+    int rightSpeed = constrain(speed - PID, 0, 255); // Base speed of right motor
+
+    setMotorSpeeds(leftSpeed, rightSpeed);
+
+    Serial.print("Position: "); Serial.print(position);
+    Serial.print(" Error: "); Serial.print(error);
+    Serial.print(" PID: "); Serial.print(PID);
+    Serial.print(" Left Speed: "); Serial.print(leftSpeed);
+    Serial.print(" Right Speed: "); Serial.print(rightSpeed);
+    Serial.print(" Pvalue: "); Serial.print(Pvalue);
+    Serial.print(" Ivalue: "); Serial.print(Ivalue);
+    Serial.print(" Dvalue: "); Serial.println(Dvalue);
+  }
+    
+  
+
+}
+
+void setMotorSpeeds(int leftSpeed, int rightSpeed) {
+  if (leftSpeed > 0) {
+    motors.setSpeedB(leftSpeed);
+    motors.forwardB();
+  } else {
+    motors.setSpeedB(leftSpeed);
+    motors.backwardB();
+  }
+
+  if (rightSpeed > 0) {
+    motors.setSpeedA(rightSpeed);
+    motors.forwardA();
+  } else {
+    motors.setSpeedA(rightSpeed);
+    motors.backwardA();
+  }
+}
+
+void calibrador(){
+  // configure the sensors
+  qtr.setTypeRC();
+  qtr.setSensorPins(sensorPins, SensorCount);
+  qtr.setEmitterPin(2);
+
+  delay(500);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH); // turn on Arduino's LED to indicate we are in calibration mode
+
+  // 2.5 ms RC read timeout (default) * 10 reads per calibrate() call
+  // = ~25 ms per calibrate() call.
+  // Call calibrate() 400 times to make calibration take about 10 seconds.
+
+  delay(5000);
+  Serial.println();
+  Serial.println("Calibração: Iniciando...");
+  delay(2000);
+
+  for (uint16_t i = 0; i < 400; i++)
+  {
+    qtr.calibrate();
+    Serial.println(i);
+  }
+  digitalWrite(LED_BUILTIN, LOW); // turn off Arduino's LED to indicate we are through with calibration
+
+  // print the calibration minimum values measured when emitters were on
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(qtr.calibrationOn.minimum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+
+  // print the calibration maximum values measured when emitters were on
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(qtr.calibrationOn.maximum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+  Serial.println();
+  delay(1000);
+}
